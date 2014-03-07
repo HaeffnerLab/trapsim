@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 class Electrode():
 
-    def __init__(self, location):
+    def __init__(self, location, d=10e-9):
         '''
         location is a 2-element list of the form
         [ (xmin, xmax), (ymin, ymax) ]
@@ -20,6 +20,7 @@ class Electrode():
 
         (self.x1, self.y1) = (xmin, ymin)
         (self.x2, self.y2) = (xmax, ymax)
+        self.d = d # step size for derivative
 
     def solid_angle(self, xp, yp, zp):
         '''
@@ -29,6 +30,40 @@ class Electrode():
         term = lambda x,y: np.arctan(((x - xp)*(y - yp))/(zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )))
         return abs(term(self.x2, self.y2) - term(self.x1, self.y2) - term(self.x2, self.y1) + term(self.x1, self.y1))
 
+    def compute_voltage(self, xp, yp, zp):
+        '''
+        Compute voltage at the observation point due only to this electrode. (That is,
+        all other electrodes are grounded.)
+        Is just the voltage on the electrode times the solid angle (over 2pi).
+        Also since the charge is e, the potential energy due to this potential is already in eV
+        '''
+
+        return (self.voltage/(2*np.pi))*self.solid_angle(xp, yp, zp)
+
+    def compute_electric_field(self, xp, yp, zp):
+        '''
+        Calculate the electric field at the observation point, given the voltage on the electrode
+        If voltage is set in Volts, field is in Volts/meter.
+        E = -grad(Potential)
+        '''
+        d = self.d
+        V0 = self.compute_voltage(xp, yp, zp)
+        Ex = -(self.compute_voltage(xp+d, yp, zp) - V0)/d
+        Ey = -(self.compute_voltage(xp, yp+d, zp) - V0)/d
+        Ez = -(self.compute_voltage(xp, yp, zp+d) - V0)/d
+
+        return [Ex, Ey, Ez]
+
+    def compute_d_effective(self, xp, yp, zp):
+        '''
+        Calculate the effective distance due to this electrode. This is defined
+        as the parallel plate capacitor separation which gives the observed electric
+        field for the given applied voltage. That is,
+        Deff = V/E. Will be different in each direction so we return [deff_x, deff_y, deff_z]
+        '''
+        [Ex, Ey, Ez] = self.compute_electric_field(xp, yp, zp)
+        return [self.voltage/Ex, self.voltage/Ey, self.voltage/Ez] # in meters
+        
     def set_voltage(self, v):
         self.voltage = v
 
@@ -62,12 +97,6 @@ class World():
     def set_voltage(self, name, voltage):
         self.electrode_dict[name].set_voltage(voltage)
 
-    def compute_voltage(self, name, xp, yp, zp):
-        e = self.electrode_dict[name]
-        v = e.voltage
-        omega = e.solid_angle(xp, yp, zp)
-        return (v/(2*np.pi))*omega
-
     def compute_total_rf_voltage(self, xp, yp, zp):
         v = 0
         for e in self.rf_electrode_dict.keys():
@@ -83,14 +112,16 @@ class World():
     def compute_rf_field(self, xp, yp, zp):
 
         '''
-        If voltage is set in Volts, field is in volts/meter
+        Just add the electric field due to all the rf electrodes
         '''
-        d = self.d
-        base_voltage = self.compute_total_rf_voltage(xp, yp, zp)
-        Ex = -(self.compute_total_rf_voltage(xp+d, yp, zp) - base_voltage)/d
-        Ey = -(self.compute_total_rf_voltage(xp, yp+d, zp) - base_voltage)/d
-        Ez = -(self.compute_total_rf_voltage(xp, yp, zp+d) - base_voltage)/d
-
+        Ex = 0
+        Ey = 0
+        Ez = 0
+        for name in self.rf_electrode_dict.keys():
+            [ex, ey, ez] = self.rf_electrode_dict[name].compute_electric_field(xp, yp, zp)
+            Ex += ex
+            Ey += ey
+            Ez += ez
         return [Ex, Ey, Ez]
 
     def compute_squared_field_amplitude(self, xp, yp, zp):
