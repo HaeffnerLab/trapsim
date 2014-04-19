@@ -6,10 +6,11 @@ for planar traps.
 import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
+import numdifftools as nd
 
 class Electrode():
 
-    def __init__(self, location, d=10e-9):
+    def __init__(self, location):
         '''
         location is a 2-element list of the form
         [ (xmin, xmax), (ymin, ymax) ]
@@ -30,7 +31,7 @@ class Electrode():
         term = lambda x,y: np.arctan(((x - xp)*(y - yp))/(zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )))
         return abs(term(self.x2, self.y2) - term(self.x1, self.y2) - term(self.x2, self.y1) + term(self.x1, self.y1))
 
-    def compute_voltage(self, xp, yp, zp):
+    def compute_voltage(self, r):
         '''
         Compute voltage at the observation point due only to this electrode. (That is,
         all other electrodes are grounded.)
@@ -38,45 +39,90 @@ class Electrode():
         Also since the charge is e, the potential energy due to this potential is already in eV
         '''
 
+        [xp, yp, zp] = r
+
         return (self.voltage/(2*np.pi))*self.solid_angle(xp, yp, zp)
 
-    def compute_electric_field(self, xp, yp, zp):
+    def compute_electric_field(self, r):
         '''
         Calculate the electric field at the observation point, given the voltage on the electrode
         If voltage is set in Volts, field is in Volts/meter.
         E = -grad(Potential)
         '''
-        d = self.d
-        V0 = self.compute_voltage(xp, yp, zp)
-        Ex = -(self.compute_voltage(xp+d, yp, zp) - V0)/d
-        Ey = -(self.compute_voltage(xp, yp+d, zp) - V0)/d
-        Ez = -(self.compute_voltage(xp, yp, zp+d) - V0)/d
+        xp, yp, zp = r
+        grad = nd.Gradient( self.compue_voltage )(r).gradient
+        return -1*grad(r)
 
-        return [Ex, Ey, Ez]
-
-    def compute_d_effective(self, xp, yp, zp):
+    def compute_d_effective(self, r):
         '''
         Calculate the effective distance due to this electrode. This is defined
         as the parallel plate capacitor separation which gives the observed electric
         field for the given applied voltage. That is,
         Deff = V/E. Will be different in each direction so we return [deff_x, deff_y, deff_z]
         '''
-        [Ex, Ey, Ez] = self.compute_electric_field(xp, yp, zp)
+        [Ex, Ey, Ez] = self.compute_electric_field(r)
         return [self.voltage/Ex, self.voltage/Ey, self.voltage/Ez] # in meters
         
     def set_voltage(self, v):
         self.voltage = v
 
+    def expand_potential( self, r):
+        '''
+        Numerically expand the potential due to the electrode to second order as a taylor series
+        around the obersvation point r = [x, y, z]
+
+        self.taylor_dict is a dictionary containing the terms of the expansion. e.g.
+        self.taylor_dict['x^2'] = (1/2)d^2\phi/dx^2
+        '''
+        # first set the voltage to 1V for this. Save the old voltage to restore at the end.
+        old_voltage = self.voltage
+        self.set_voltage(1.0)
+
+        self.taylor_dict = {}
+        grad = nd.Gradient( self.compute_voltage)(r).gradient
+        self.taylor_dict['x'] = grad(r)[0]
+        self.taylor_dict['y'] = grad(r)[1]
+        self.taylor_dict['z'] = grad(r)[2]
+
+        '''
+        Now compute the second derivatives
+        '''
+
+        hessian = nd.Hessian( self.compute_voltage )(r).hessian
+        self.taylor_dict['x^2'] = 0.5*hessian(r)[0][0]
+        self.taylor_dict['y^2'] = 0.5*hessian(r)[1][1]
+        self.taylor_dict['z^2'] = 0.5*hessian(r)[2][2]
+        self.taylor_dict['xy'] = 0.5*hessian(r)[0][1]
+        self.taylor_dict['xz'] = 0.5*hessian(r)[0][2]
+        self.taylor_dict['zy'] = 0.5*hessian(r)][1][2]
+
+        # now restore the old voltage
+        self.set_voltage(old_voltage)
+
+    def expand_in_multipoles( self, r, r0 = 1):
+        '''
+        Obtain the multipole expansion for the potential due to the elctrode at the observation point.
+        '''
+        
+        # first, make sure we have a taylor expansion of the potential
+        self.expand_potential(r)
+
+        self.multipole_dict = {}
+        self.multipole_dict['U1'] = (r0**2)*(2*self.taylor_dict['x^2'] + self.taylor_dict['z^2'])
+        self.multipole_dict['U2'] = (r0**2)*self.taylor_dict['z^2']
+        self.multipole_dict['U3'] = 2*(r0**2)*self.taylor_dict['xy']
+        self.multipole_dict['U4'] = 2*(r0**2)*self.taylor_dict['zy']
+        self.multipole_dict['U5'] = 2*(r0**2)*self.taylor_dict['xz']
+
 class World():
     '''
     Compute all electrodes
     '''
-    def __init__(self, omega_rf, d=10e-9):
+    def __init__(self, d=10e-9):
         self.electrode_dict = {}
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
         self.d = d # step-size for derivative
-        self.omega_rf = omega_rf
 
     def add_electrode(self, name, xr, yr, kind, voltage = None):
         '''
@@ -96,6 +142,9 @@ class World():
 
     def set_voltage(self, name, voltage):
         self.electrode_dict[name].set_voltage(voltage)
+
+    def set_omega_rf(self, omega_rf):
+        self.omega_rf = omega_rf
 
     def compute_total_rf_voltage(self, xp, yp, zp):
         v = 0
