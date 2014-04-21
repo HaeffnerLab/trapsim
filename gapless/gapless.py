@@ -10,10 +10,15 @@ import numdifftools as nd
 
 class Electrode():
 
-    def __init__(self, location):
+    def __init__(self, location, axes_permutation=0):
         '''
         location is a 2-element list of the form
         [ (xmin, xmax), (ymin, ymax) ]
+
+        axes_permutation is an integer.
+        0 (default): normal surface trap. z-axis lies along the plane
+        of the trap
+        1: trap is in the x-y plane. z axis is vertical
         '''
 
         xmin, xmax = location[0]
@@ -22,6 +27,8 @@ class Electrode():
         (self.x1, self.y1) = (xmin, ymin)
         (self.x2, self.y2) = (xmax, ymax)
         self.sub_electrodes = [] # list containing extra electrodes are connected to the current one
+
+        self.axes_permutation = axes_permutation
 
     def solid_angle(self, r):
         '''
@@ -32,8 +39,12 @@ class Electrode():
         that are electrically connected to the current electrode. This allows you to join electrodes
         on the trap, or to make more complicated electrode geometries than just rectangles.
         '''
-
-        xp, yp, zp = r
+        if self.axes_permutation == 0:
+            xp = r[0]
+            yp = -1*r[2]
+            zp = r[1]
+        if self.axes_permutation == 1:
+            xp, yp, zp = r
         term = lambda x,y: np.arctan(((x - xp)*(y - yp))/(zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )))
         solid_angle = abs(term(self.x2, self.y2) - term(self.x1, self.y2) - term(self.x2, self.y1) + term(self.x1, self.y1))
 
@@ -45,7 +56,7 @@ class Electrode():
         Extend the current electrode by a set of rectangular regions
         '''
         for l in locations:
-            elec = Electrode(l)
+            elec = Electrode(l, axes_permutation = self.axes_permutation)
             self.sub_eub_electrodes.append(elec)
 
     def compute_voltage(self, r):
@@ -65,7 +76,7 @@ class Electrode():
         E = -grad(Potential)
         '''
         xp, yp, zp = r
-        grad = nd.Gradient( self.compue_voltage )(r).gradient
+        grad = nd.Gradient( self.compute_voltage )(r).gradient
         return -1*grad(r)
 
     def compute_d_effective(self, r):
@@ -109,7 +120,7 @@ class Electrode():
         self.taylor_dict['z^2'] = 0.5*hessian(r)[2][2]
         self.taylor_dict['xy'] = 0.5*hessian(r)[0][1]
         self.taylor_dict['xz'] = 0.5*hessian(r)[0][2]
-        self.taylor_dict['zy'] = 0.5*hessian(r)][1][2]
+        self.taylor_dict['zy'] = 0.5*hessian(r)[1][2]
 
         # now restore the old voltage
         self.set_voltage(old_voltage)
@@ -133,7 +144,7 @@ class World():
     '''
     Compute all electrodes
     '''
-    def __init__(self):
+    def __init__(self, axes_permutation = 0):
         self.electrode_dict = {}
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
