@@ -3,29 +3,30 @@ Example of the gapless approximation code. Refers to the CCT A trap.
 '''
 
 from gapless import World
+import numpy as np
 
 '''
 Add all the electrodes electrodes
 '''
-gap = 5.
+gap = 5.e-6
 
-smallrfx1 = -50.
-smallrfx2 = -185.
-bigrfx1 = 50.
-bigrfx2 = 320.
-cx1 = -45.
-cx2 = 45.
+smallrfx1 = -50.e-6
+smallrfx2 = -185.e-6
+bigrfx1 = 50.e-6
+bigrfx2 = 320.e-6
+cx1 = -45.e-6
+cx2 = 45.e-6
 
-rfy1 = -5280.
-rfy2 = 9475.
+rfy1 = -5280.e-6
+rfy2 = 9475.e-6
 
-lx1 = -490.
-lx2 = -190.
-rx1 = 325.
-rx2 = 625.
+lx1 = -490.e-6
+lx2 = -190.e-6
+rx1 = 325.e-6
+rx2 = 625.e-6
 
 # y coords of the dc electrodes
-y_ranges = [(0, 300.),
+y_ranges = 1e-6*np.array([(0, 300.),
             (305., 605.),
             (610., 910.),
             (915., 1215.),
@@ -36,7 +37,7 @@ y_ranges = [(0, 300.),
             (2240., 2540.),
             (2545., 2995.),
             (3000., 3450.)
-            ]
+            ])
 
 ''' Now build your own world '''
 w = World()

@@ -41,7 +41,7 @@ class Electrode():
         '''
         if self.axes_permutation == 0:
             xp = r[0]
-            yp = -1*r[2]
+            yp = r[2]
             zp = r[1]
         if self.axes_permutation == 1:
             xp, yp, zp = r
@@ -50,6 +50,8 @@ class Electrode():
 
         for elec in self.sub_electrodes:
             solid_angle += elec.solid_angle(r)
+        
+        return solid_angle
 
     def extend(self, locations):
         '''
@@ -76,7 +78,7 @@ class Electrode():
         E = -grad(Potential)
         '''
         xp, yp, zp = r
-        grad = nd.Gradient( self.compute_voltage )(r).gradient
+        grad = nd.Gradient( self.compute_voltage )
         return -1*grad(r)
 
     def compute_d_effective(self, r):
@@ -101,11 +103,14 @@ class Electrode():
         self.taylor_dict['x^2'] = (1/2)d^2\phi/dx^2
         '''
         # first set the voltage to 1V for this. Save the old voltage to restore at the end.
-        old_voltage = self.voltage
-        self.set_voltage(1.0)
+        try:
+            old_voltage = self.voltage
+            self.set_voltage(1.0)
+        except:
+            print "no old voltage set"
 
         self.taylor_dict = {}
-        grad = nd.Gradient( self.compute_voltage)(r).gradient
+        grad = nd.Gradient( self.compute_voltage)
         self.taylor_dict['x'] = grad(r)[0]
         self.taylor_dict['y'] = grad(r)[1]
         self.taylor_dict['z'] = grad(r)[2]
@@ -114,16 +119,18 @@ class Electrode():
         Now compute the second derivatives
         '''
 
-        hessian = nd.Hessian( self.compute_voltage )(r).hessian
+        hessian = nd.Hessian( self.compute_voltage )
         self.taylor_dict['x^2'] = 0.5*hessian(r)[0][0]
         self.taylor_dict['y^2'] = 0.5*hessian(r)[1][1]
         self.taylor_dict['z^2'] = 0.5*hessian(r)[2][2]
-        self.taylor_dict['xy'] = 0.5*hessian(r)[0][1]
-        self.taylor_dict['xz'] = 0.5*hessian(r)[0][2]
-        self.taylor_dict['zy'] = 0.5*hessian(r)[1][2]
-
-        # now restore the old voltage
-        self.set_voltage(old_voltage)
+        self.taylor_dict['xy'] = hessian(r)[0][1]
+        self.taylor_dict['xz'] = hessian(r)[0][2]
+        self.taylor_dict['zy'] = hessian(r)[1][2]
+        try:
+            # now restore the old voltage
+            self.set_voltage(old_voltage)
+        except:
+            print "no old voltage set"
 
     def expand_in_multipoles( self, r, r0 = 1):
         '''
@@ -134,11 +141,17 @@ class Electrode():
         self.expand_potential(r)
 
         self.multipole_dict = {}
+        # multipoles
         self.multipole_dict['U1'] = (r0**2)*(2*self.taylor_dict['x^2'] + self.taylor_dict['z^2'])
         self.multipole_dict['U2'] = (r0**2)*self.taylor_dict['z^2']
         self.multipole_dict['U3'] = 2*(r0**2)*self.taylor_dict['xy']
         self.multipole_dict['U4'] = 2*(r0**2)*self.taylor_dict['zy']
         self.multipole_dict['U5'] = 2*(r0**2)*self.taylor_dict['xz']
+
+        # fields
+        self.multipole_dict['Ex'] = -1*r0*self.taylor_dict['x']
+        self.multipole_dict['Ey'] = -1*r0*self.taylor_dict['y']
+        self.multipole_dict['Ez'] = -1*r0*self.taylor_dict['z']
 
 class World():
     '''
@@ -215,7 +228,6 @@ class World():
         '''
         This is only valid if xp, yp, zp is the trapping position. Return frequency (i.e. 2*pi*omega)
         '''
-        U0 = self.compute_pseudopot(r)
         ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
         hessdiag = nd.Hessdiag( self.compute_pseudopot )(r)
