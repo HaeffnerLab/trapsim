@@ -190,10 +190,10 @@ class World():
             v += self.compute_voltage(e, r)
         return v
 
-    def compute_total_dc_voltage(self, r):
+    def compute_total_dc_potential(self, r):
         v = 0
         for e in self.dc_electrode_dict.keys():
-            v += self.compute_voltage(e, xp, yp, zp)
+            v += e.compute_voltage(r)
         return v # the potential energy is automatically electron volts
 
     def compute_rf_field(self, r):
