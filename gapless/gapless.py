@@ -233,7 +233,7 @@ class World():
         hessdiag = nd.Hessdiag( self.compute_pseudopot )(r)
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
-        d2Udy2 = ev_to_joule*hessdiag[2]
+        d2Udz2 = ev_to_joule*hessdiag[2]
         '''
         Now d2Udx2 has units of J/m^2. Then w = sqrt(d2Udx2/(mass)) has units of angular frequency
         '''
