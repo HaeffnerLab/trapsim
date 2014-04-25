@@ -162,15 +162,14 @@ class World():
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
 
-    def add_electrode(self, name, xr, yr, kind, voltage = None):
+    def add_electrode(self, name, xr, yr, kind, voltage = 0.0):
         '''
         Add an electrode to the World. Optionally set a voltage on it. Name it with a string.
         kind = 'rf' or 'dc'. If kind == 'rf', then add this electrode to the rf electrode dict
         as well as to the general electrode dict
         '''
         e = Electrode([xr, yr])
-        if voltage is not None:
-            e.set_voltage(voltage)
+        e.set_voltage(voltage)
         self.electrode_dict[name] = e
         
         if kind=='rf':
