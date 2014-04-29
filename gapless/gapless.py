@@ -161,6 +161,7 @@ class World():
         self.electrode_dict = {}
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
+        self.axes_permutation = axes_permutation
 
     def add_electrode(self, name, xr, yr, kind, voltage = 0.0):
         '''
@@ -168,7 +169,7 @@ class World():
         kind = 'rf' or 'dc'. If kind == 'rf', then add this electrode to the rf electrode dict
         as well as to the general electrode dict
         '''
-        e = Electrode([xr, yr])
+        e = Electrode([xr, yr], axes_permutation=self.axes_permutation)
         e.set_voltage(voltage)
         self.electrode_dict[name] = e
         
