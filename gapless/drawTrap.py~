@@ -1,0 +1,40 @@
+def mainPlotter(electrodes,margin):
+    #electrodes is a dictionary with names as keys and electrode objects as values
+    #margin should be on the order of 10^(-4), i.e. several hundred microns
+    import numpy as np
+    import matplotlib.pyplot as plt
+    plt.figure() #initialize figure
+    for key in electrodes:
+        myElec = electrodes[key]
+        indiPlotter([(myElec.x1,myElec.x2),(myElec.y1,myElec.y2)]) #plot each electrode
+    
+    orig_axes=plt.axis()
+    new_axes=[0,0,0,0]
+    
+    #creating margins
+    for i in range(4):
+        if i%2==0:
+            new_axes[i]=orig_axes[i]-margin
+        else
+            new_axes[i]=orig_axes[i]+margin
+            
+    plt.axis(new_axes)
+    plt.show()
+    
+def indiPlotter(elec):
+    import numpy
+    import matplotlib.pyplot as plt
+
+    xm=elec[0][0]
+    xM=elec[0][1]
+    ym=elec[1][0]
+    yM=elec[1][1]
+
+    #plot vertical lines
+    plt.plot([xm,xm],[ym,yM],color='black')
+    plt.plot([xM,xM],[ym,yM],color='black')
+
+    #plot horizontal lines
+    plt.plot([xm,xM],[ym,ym],color='black')
+    plt.plot([xm,xM],[yM,yM],color='black')
+   
