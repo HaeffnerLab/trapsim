@@ -132,6 +132,12 @@ class Electrode():
         except:
             print "no old voltage set"
 
+        self.taylor_dict_1d = {}
+        pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
+        self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
+        self.taylor_dict_1d['z^4'] = 0.25 * nd.Derivative(pot_z,n=4)(r[2])[0]
+#        print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
+
     def expand_in_multipoles( self, r, r0 = 1):
         '''
         Obtain the multipole expansion for the potential due to the elctrode at the observation point.
@@ -139,11 +145,10 @@ class Electrode():
         
         # first, make sure we have a taylor expansion of the potential
         self.expand_potential(r)
-
         self.multipole_dict = {}
         # multipoles
         self.multipole_dict['U1'] = (r0**2)*(2*self.taylor_dict['x^2'] + self.taylor_dict['z^2'])
-        self.multipole_dict['U2'] = (r0**2)*self.taylor_dict['z^2']
+        self.multipole_dict['U2'] = (r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['z^2'])
         self.multipole_dict['U3'] = 2*(r0**2)*self.taylor_dict['xy']
         self.multipole_dict['U4'] = 2*(r0**2)*self.taylor_dict['zy']
         self.multipole_dict['U5'] = 2*(r0**2)*self.taylor_dict['xz']
@@ -152,6 +157,9 @@ class Electrode():
         self.multipole_dict['Ex'] = -1*r0*self.taylor_dict['x']
         self.multipole_dict['Ey'] = -1*r0*self.taylor_dict['y']
         self.multipole_dict['Ez'] = -1*r0*self.taylor_dict['z']
+        #Fourth order 1d taylor
+        self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r0**2 \
+                                                 + 3 / r0**4)
 
 class World():
     '''
