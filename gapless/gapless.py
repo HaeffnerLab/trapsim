@@ -193,7 +193,8 @@ class World():
     def compute_total_dc_potential(self, r):
         v = 0
         for e in self.dc_electrode_dict.keys():
-            v += e.compute_voltage(r)
+            el = self.electrode_dict[e]
+            v += el.compute_voltage(r)
         return v # the potential energy is automatically electron volts
 
     def compute_rf_field(self, r):
