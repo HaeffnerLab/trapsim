@@ -158,8 +158,10 @@ class Electrode():
         self.multipole_dict['Ey'] = -1*r0*self.taylor_dict['y']
         self.multipole_dict['Ez'] = -1*r0*self.taylor_dict['z']
         #Fourth order 1d taylor
-        self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r0**2 \
-                                                 + 3 / r0**4)
+        #self.multipole_dict['z^4'] = -1*(r0**4)* self.taylor_dict_1d['z^4']
+        r1 = r0
+        self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r1**2 \
+                                                 + 3 / r1**4)
 
 class World():
     '''

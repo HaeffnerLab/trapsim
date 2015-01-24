@@ -17,16 +17,16 @@ def potential(x, n, c2, c4):
 
 
 
-N = 20
-Nc= 100
-C_l = linspace(0,.1,Nc)
+N = 30
+Nc= 50
+C_l = linspace(0,5.1,Nc)
 
 x0 = arange(N) - N/2.0
 
 c2 = 1
 c4 = C_l[3]
 a = fsolve(potential,x0,args=(N, c2, c4))
-#x0 = a
+x = a
 
 dlist = []
 
