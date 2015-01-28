@@ -7,6 +7,7 @@ import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
 import numdifftools as nd
+from multipole_expansion import *
 
 class Electrode():
 
@@ -269,7 +270,17 @@ class World():
         fy = np.sqrt(abs(d2Udy2)/m)/(2*np.pi)
         fz = np.sqrt(abs(d2Udz2)/m)/(2*np.pi)
         return [fx, fy, fz]
-    
+
+    def multipole_control_matrix(self, r, controlled_multipoles, r0 = 1, shorted_electrodes = []):
+        elec_list = []
+        for k in range(len(self.dc_electrode_dict.keys())):
+            elname = str(k + 1)
+            if elname not in shorted_electrodes:
+                elec_list.append( self.dc_electrode_dict[elname] )
+        me = MultipoleExpander(r, elec_list, controlled_multipoles, r0, compute_potentials = True)
+        C = me.construct_control_matrix()
+        return C
+
     def drawTrap(self):
         import numpy as np
         import matplotlib.pyplot as plt
