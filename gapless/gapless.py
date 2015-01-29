@@ -278,7 +278,14 @@ class World():
             if elname not in shorted_electrodes:
                 elec_list.append( self.dc_electrode_dict[elname] )
         me = MultipoleExpander(r, elec_list, controlled_multipoles, r0, compute_potentials = True)
-        C = me.construct_control_matrix()
+        C = me.construct_control_matrix() # C does not contain the shorted electrodes
+        
+        # now add a row of zeros for each shorted electrode
+        zerolist = np.zeros(len(controlled_multipoles))
+        shorted_indices = [int(k) - 1 for k in shorted_electrodes]
+        shorted_indices.sort() # needs to be in ascending order
+        for i in shorted_indices:
+            C = np.insert(C, i, zerolist, axis=1)
         return C
 
     def drawTrap(self):
