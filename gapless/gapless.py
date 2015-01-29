@@ -237,6 +237,19 @@ class World():
             Ez += ez
         return [Ex, Ey, Ez]
 
+    def compute_dc_field(self, r):
+        
+        Ex = 0
+        Ey = 0
+        Ez = 0
+        for name in self.dc_electrode_dict.keys():
+            [ex, ey, ez] = self.dc_electrode_dict[name].compute_electric_field(r)
+            Ex += ex
+            Ey += ey
+            Ez += ez
+        return [Ex, Ey, Ez]
+           
+
     def compute_squared_field_amplitude(self, r):
         Ex, Ey, Ez = self.compute_rf_field(r)
         
