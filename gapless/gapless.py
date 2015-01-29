@@ -111,6 +111,9 @@ class Electrode():
             print "no old voltage set"
 
         self.taylor_dict = {}
+
+        self.taylor_dict['r^0'] = self.compute_voltage(r)
+
         grad = nd.Gradient( self.compute_voltage)
         self.taylor_dict['x'] = grad(r)[0]
         self.taylor_dict['y'] = grad(r)[1]
@@ -127,17 +130,18 @@ class Electrode():
         self.taylor_dict['xy'] = hessian(r)[0][1]
         self.taylor_dict['xz'] = hessian(r)[0][2]
         self.taylor_dict['zy'] = hessian(r)[1][2]
+
+        self.taylor_dict_1d = {}
+        pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
+        self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
+        self.taylor_dict_1d['z^4'] = 0.25 * nd.Derivative(pot_z,n=4)(r[2])[0]
+        #print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
         try:
             # now restore the old voltage
             self.set_voltage(old_voltage)
         except:
             print "no old voltage set"
 
-        self.taylor_dict_1d = {}
-        pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
-        self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
-        self.taylor_dict_1d['z^4'] = 0.25 * nd.Derivative(pot_z,n=4)(r[2])[0]
-#        print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
 
     def expand_in_multipoles( self, r, r0 = 1):
         '''
@@ -158,12 +162,22 @@ class Electrode():
         self.multipole_dict['Ex'] = -1*r0*self.taylor_dict['x']
         self.multipole_dict['Ey'] = -1*r0*self.taylor_dict['y']
         self.multipole_dict['Ez'] = -1*r0*self.taylor_dict['z']
+
+        self.multipole_dict['r^0'] = self.taylor_dict['r^0']
+        
+        # stuff that isn't really multipoles
+
+        self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict_1d['z^2']
+        self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict_1d['z^4']
+
+
+        #self.multipole_dict['z^4'] = 1*(r0**4)*self.taylor_dict_1d['z^4']
         #Fourth order 1d taylor
         #self.multipole_dict['z^4'] = -1*(r0**4)* self.taylor_dict_1d['z^4']
-        r1 = r0
-        self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r1**2 \
-                                                 + 3 / r1**4)
-
+        #r1 = 1
+        #self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r1**2 \
+        #                                         + 3 / r1**4)
+    
 class World():
     '''
     Compute all electrodes
@@ -260,9 +274,10 @@ class World():
         As always, this is valid only at the trapping position. Return frequency (not angular frequency)
         '''
         joule_to_ev = 6.24150934e18 # conversion factor to take joules -> eV
+        ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
         
-        hessdiag = nd.Hessdiag( self.compute_dc_voltage )(r)
+        hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
         d2Udz2 = ev_to_joule*hessdiag[2]
