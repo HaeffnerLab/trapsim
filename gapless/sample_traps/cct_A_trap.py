@@ -2,7 +2,11 @@
 Example of the gapless approximation code. Refers to the CCT A trap.
 '''
 
-from gapless import World
+try:
+    from gapless import World
+except:
+    from trapsim.gapless import World
+
 import numpy as np
 
 '''
