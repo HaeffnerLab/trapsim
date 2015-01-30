@@ -135,6 +135,10 @@ class Electrode():
         pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
         self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
         self.taylor_dict_1d['z^4'] = (1./24) * nd.Derivative(pot_z,n=4)(r[2])[0]
+
+        self.taylor_dict['xz^2']  =  compute_xz2_coeff(r)
+        self.taylor_dict['yz^2']  =  compute_yz2_coeff(r)
+
         #print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
         try:
             # now restore the old voltage
@@ -169,6 +173,8 @@ class Electrode():
 
         self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict_1d['z^2']
         self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict_1d['z^4']
+        self.multipole_dict['xz^2'] = (r0)**3 * self.taylor_dict['xz^2']
+        self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
 
 
         #self.multipole_dict['z^4'] = 1*(r0**4)*self.taylor_dict_1d['z^4']
@@ -177,8 +183,23 @@ class Electrode():
         #r1 = 1
         #self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r1**2 \
         #                                         + 3 / r1**4)
-    
-    def compute_xz2(self, x_derivative_arr):
+        
+    def compute_xz2_coeff(self, r):
+        '''Return the coeffient of x*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
+
+        hessian      = nd.Hessian( self.compute_voltage )
+        suck_it_z2   = lambda x: 0.5*hessian((x, r[1], r[2]))[2][2]
+        
+        return nd.Derivative(suck_it_z2,n=1)(r[0])[0]
+
+    def compute_yz2_coeff(self, r):
+        '''Return the coeffient of y*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
+
+        hessian      = nd.Hessian( self.compute_voltage )
+        suck_it_z2   = lambda y: 0.5*hessian((r[0], y, r[2]))[2][2]
+        
+        return nd.Derivative(suck_it_z2,n=1)(r[1])[0]
+
 
 
 class World():
