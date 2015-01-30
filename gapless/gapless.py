@@ -136,8 +136,8 @@ class Electrode():
         self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
         self.taylor_dict_1d['z^4'] = (1./24) * nd.Derivative(pot_z,n=4)(r[2])[0]
 
-        self.taylor_dict['xz^2']  =  compute_xz2_coeff(r)
-        self.taylor_dict['yz^2']  =  compute_yz2_coeff(r)
+        self.taylor_dict['xz^2']  =  self.compute_xz2_coeff(r)
+        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
 
         #print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
         try:
