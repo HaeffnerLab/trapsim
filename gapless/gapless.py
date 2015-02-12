@@ -134,10 +134,14 @@ class Electrode():
         self.taylor_dict_1d = {}
         pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
         self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
-        self.taylor_dict_1d['z^4'] = (1./24) * nd.Derivative(pot_z,n=4)(r[2])[0]
+        self.taylor_dict_1d['z^4'] = 1./24 * nd.Derivative(pot_z,n=4)(r[2])[0]
 
         self.taylor_dict['xz^2']  =  self.compute_xz2_coeff(r)
-        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
+#        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
+        self.taylor_dict['x^2z^2']  =  self.compute_x2z2_coeff(r)
+        self.taylor_dict['x^2z^4']  =  self.compute_x2z4_coeff(r)
+
+#        self.taylor_dict['y^2z^2']  =  self.compute_y2z2_coeff(r)
 
         #print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
         try:
@@ -157,7 +161,7 @@ class Electrode():
         self.multipole_dict = {}
         # multipoles
         self.multipole_dict['U1'] = (r0**2)*(2*self.taylor_dict['x^2'] + self.taylor_dict['z^2'])
-        self.multipole_dict['U2'] = (r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['z^2'])
+        self.multipole_dict['U2'] = (r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
         self.multipole_dict['U3'] = 2*(r0**2)*self.taylor_dict['xy']
         self.multipole_dict['U4'] = 2*(r0**2)*self.taylor_dict['zy']
         self.multipole_dict['U5'] = 2*(r0**2)*self.taylor_dict['xz']
@@ -174,7 +178,15 @@ class Electrode():
         self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict_1d['z^2']
         self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict_1d['z^4']
         self.multipole_dict['xz^2'] = (r0)**3 * self.taylor_dict['xz^2']
-        self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
+        #self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
+
+        #These terms give corrections to (radial frequency)**2 along the z axis:
+        self.multipole_dict['x^2z^2']  =  (r0)**4 * self.taylor_dict['x^2z^2']
+        self.multipole_dict['x^2z^4']  =  (r0)**6 * self.taylor_dict['x^2z^4']
+        #self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
+        #self.multipole_dict['y^2z^4']  =  (r0)**4 * self.taylor_dict['y^2z^4']
+
+
 
 
         #self.multipole_dict['z^4'] = 1*(r0**4)*self.taylor_dict_1d['z^4']
@@ -199,6 +211,24 @@ class Electrode():
         suck_it_z2   = lambda y: 0.5*hessian((r[0], y, r[2]))[2][2]
         
         return nd.Derivative(suck_it_z2,n=1)(r[1])[0]
+
+    def compute_x2z2_coeff(self, r):
+        '''Return the coeffient of x^2*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
+
+        hessian      = nd.Hessian( self.compute_voltage )
+        suck_it_z2   = lambda x: 0.5*hessian((x, r[1], r[2]))[2][2]
+        
+        return 0.5 * nd.Derivative(suck_it_z2,n=2)(r[0])[0]
+
+
+    def compute_x2z4_coeff(self, r):
+        '''Return the coeffient of x^2*z^4 in taylor expansion of the potential in Cartesian coordinates at point r'''
+
+        hessian      = nd.Hessian( self.compute_voltage )
+        suck_it_x2   = lambda z: 0.5 * hessian((r[0], r[1], z))[0][0]
+        
+        return 1./24 * nd.Derivative(suck_it_x2, n=4)(r[2])[0]
+
 
 
 
@@ -313,7 +343,7 @@ class World():
         joule_to_ev = 6.24150934e18 # conversion factor to take joules -> eV
         ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
-        
+            
         hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
