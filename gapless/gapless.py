@@ -137,7 +137,7 @@ class Electrode():
         self.taylor_dict_1d['z^4'] = 1./24 * nd.Derivative(pot_z,n=4)(r[2])[0]
 
         self.taylor_dict['xz^2']  =  self.compute_xz2_coeff(r)
-#        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
+        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
         self.taylor_dict['x^2z^2']  =  self.compute_x2z2_coeff(r)
         self.taylor_dict['y^2z^2']  =  self.compute_y2z2_coeff(r)
         self.taylor_dict['x^2z^4']  =  self.compute_x2z4_coeff(r)
@@ -179,12 +179,13 @@ class Electrode():
         self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict_1d['z^2']
         self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict_1d['z^4']
         self.multipole_dict['xz^2'] = (r0)**3 * self.taylor_dict['xz^2']
-        #self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
+        self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
 
         #These terms give corrections to (radial frequency)**2 along the z axis:
         self.multipole_dict['x^2z^2']  =  (r0)**4 * self.taylor_dict['x^2z^2']
 
         self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
+
 
         self.multipole_dict['x^2z^4']  =  (r0)**6 * self.taylor_dict['x^2z^4']
         #self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
