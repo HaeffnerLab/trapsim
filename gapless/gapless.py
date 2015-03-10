@@ -29,6 +29,8 @@ class Electrode():
         (self.x2, self.y2) = (xmax, ymax)
         self.sub_electrodes = [] # list containing extra electrodes are connected to the current one
 
+        self.multipole_expansion_dict = {} # keys are expansion points. elements are dictionaries of multipole expansions
+
         self.axes_permutation = axes_permutation
 
     def solid_angle(self, r):
@@ -46,7 +48,7 @@ class Electrode():
             zp = r[1]
         if self.axes_permutation == 1:
             xp, yp, zp = r
-        term = lambda x,y: np.arctan(((x - xp)*(y - yp))/(zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )))
+        term = lambda x,y: np.arctan( ((x - xp)*(y - yp)) / (zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )) )
         solid_angle = abs(term(self.x2, self.y2) - term(self.x1, self.y2) - term(self.x2, self.y1) + term(self.x1, self.y1))
 
         for elec in self.sub_electrodes:
@@ -156,7 +158,7 @@ class Electrode():
         '''
         Obtain the multipole expansion for the potential due to the elctrode at the observation point.
         '''
-        
+
         # first, make sure we have a taylor expansion of the potential
         self.expand_potential(r)
         self.multipole_dict = {}
