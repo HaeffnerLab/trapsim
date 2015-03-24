@@ -6,62 +6,54 @@ from sympy import *
 
 class analytic_derivatives():
 
-    def __init__(self):
+    def __init__(self, axes_permutation=0):
         x, y, z, xp, yp, zp = symbols('x y z xp yp zp')
 
-        term = atan( ((x - xp)*(y - yp)) / (zp*sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )) )
+        if axes_permutation = 0:
+            self.term = atan( ((x - xp)*(y - zp)) / (yp*sqrt( (x - xp)**2 + (y - zp)**2 + yp**2)))
 
+        if axes_permutation = 1:
+            self.term = atan( ((x - xp)*(y - yp)) / (zp*sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )) )
+
+        self.symbols = [x,y,z,xp,yp,zp]
+
+        self.functions_dict = {}
+
+        self.first_order()
+        self.second_order()
+        self.third_order()
+
+    def first_order(self):
         
+        x, y, z, xp, yp, zp = self.symbols
 
+        self.functions_dict['ddx'] = lambdify(self.symbols, self.term.diff(xp))
+        self.functions_dict['ddy'] = lambdify(self.symbols, self.term.diff(yp))
+        self.functions_dict['ddz'] = lambdify(self.symbols, self.term.diff(zp))
 
-class analytic_derivatives():
-
-    def first_order(self, var, r, x, y):
-        xp, yp, zp = r
-        dx = x - xp
-        dy = y - yp
-        r0 = np.sqrt( dx**2 + dy**2 + zp**2)
-        if var == 'x':
-            return (-dy*zp)/ (( dx**2 + zp**2)*r0)
-        if var == 'y':
-            return (-dx*zp)/ ((dy**2 + zp**2)*r0)
-        if var == 'z':
-            return -dx*dy*( dx**2 + dy**2 + 2*zp**2) / ((dx**2 + zp**2)*(dy**2 + zp**2)*r0)
-
-    def second_order(self, var, r, x, y):
+    def second_order(self):
         
-        xp, yp, zp = r
-        dx = x - xp
-        dy = y - yp
-        r02 = dx**2 + dy**2 + zp**2
-        r032 = (dx**2 + dy**2 + zp**2)**(3./2.)
-        r052 = (dx**2 + dy**2 + zp**2)**(5./2.)
-
-        if var == 'x^2':
-            num =  -dx*dy*zp*(3*dx**2 + 2*dy**2 + 3*zp**2)
-            denom = (dx**2 + zp**2)**2 * r032
-            return num/denom
-
-        if var == 'y^2':
-            num = -dx*dy*zp*(2*dx**2 + 3*dy**2 + 3*zp**2)
-            denom = (dy**2 + zp**2)**2*r032
-            return num/denom
-
-        if var == 'z^2':
-            t1 = -2*(dx*dy*zp)**2*r02*(dx**2 + dy**2 + 2 zp**2)**2 /  (dx**2 + zp**2)**2 / ( dy**2 + zp**2)**2
-            smallFrac = dx**2*dy**2/ zp**2 / r02
-            t2 = (2*(dx**2 + dy**2)**2 + 5( dx**2 + dy**2)*zp**2 + 6*zp**4)/(1 + smallFrac)
-            return dx*dy*(t1 + t2) / zp**3 / r052
+        x, y, z, xp, yp, zp = self.symbols
         
-        if var == 'xy':
-            return zp/r032
+        self.functions_dict['d2dx2'] = lambdify(self.symbols, self.term.diff(xp,2))
+        self.functions_dict['d2dy2'] = lambdify(self.symbols, self.term.diff(yp,2))
+        self.functions_dict['d2dz2'] = lambdify(self.symbols, self.term.diff(zp,2))
+        self.functions_dict['d2dxdy'] = lambdify(self.symbols, self.term.diff(xp,yp))
+        self.functions_dict['d2dxdz'] = lambdify(self.symbols, self.term.diff(xp,zp))
+        self.functions_dict['d2dydz'] = lambdify(self.symbols, self.term.diff(yp,zp))
 
-        if var == 'xz':
-            num = dy*( -dx**2*(dx**2 + dy**2) + ( dx**2 + dy**2 )*zp**2 + 2*zp**4)
-            denom = (dx**2 = zp**2)*r032
-            return num/denom
+    def third_order(self):
 
-        if var == 'yz':
-            num = dx*( -(dx**2 + dy**2)*dy**2 + (dx**2 + dy**2)*zp**2 + 2*zp**4)
-            denom = (dy**2 + zp**2)**2*r032
-            return num/denom            
+        x, y, z, xp, yp, zp = self.symbols
+        
+        self.functions_dict['d3dx3'] = lambdify(self.symbols, self.term.diff(xp,3))
+        self.functions_dict['d3dy3'] = lambdify(self.symbols, self.term.diff(yp,3))
+        self.functions_dict['d3dz3'] = lambdify(self.symbols, self.term.diff(zp,3))
+
+    def fourth_order(self):
+
+        x, y, z, xp, yp, zp = self.symbols
+        
+        self.functions_dict['d4dx4'] = lambdify(self.symbols, self.term.diff(xp,4))
+        self.functions_dict['d4dy4'] = lambdify(self.symbols, self.term.diff(yp,4))
+        self.functions_dict['d4dz4'] = lambdify(self.symbols, self.term.diff(zp,4))
