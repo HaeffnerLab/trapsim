@@ -56,4 +56,4 @@ w.add_electrode('23', (cx1, cx2), (rfy1, rfy2), 'dc' )
 # add the RF
 w.add_electrode('rf1', (smallrfx1, smallrfx2), (rfy1, rfy2), 'rf')
 w.add_electrode('rf2', (bigrfx1, bigrfx2), (rfy1, rfy2), 'rf')
-w.drawTrap()
+#w.drawTrap()

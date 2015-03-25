@@ -6,7 +6,7 @@ for planar traps.
 import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
-import numdifftools as nd
+#import numdifftools as nd
 from analytic_derivatives import analytic_derivatives
 from multipole_expansion import *
 
@@ -87,7 +87,8 @@ class Electrode():
         '''
         We're not going to include all of them here, probably.
         '''
-        keys = ['d3dz3', 'd3dxdz2','d3ydz2']
+        keys = ['d3dz3', 'd3dxdz2','d3dydz2']
+        x,y,z = r
         third_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
                          for key in keys])
         for elec in self.sub_electrodes:
@@ -96,6 +97,7 @@ class Electrode():
 
     def fourth_order_derivatives(self, r):
         keys = ['d4dz4', 'd4dx2dz2', 'd4dy2dz2']
+        x, y, z = r
         fourth_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
                          for key in keys])
         for elec in self.sub_electrodes:
@@ -158,11 +160,11 @@ class Electrode():
 
         self.taylor_dict = {}
 
-        self.taylor_dict['r^0'] = self.compute_voltage(r)
+        self.taylor_dict['r^0'] = self.compute_potential(r)
 
         grad = self.grad(r)
         self.taylor_dict['x'] = grad[0]
-        self.taylor_dict['y'] = grad(1]
+        self.taylor_dict['y'] = grad[1]
         self.taylor_dict['z'] = grad[2]
 
         '''
@@ -178,7 +180,7 @@ class Electrode():
 
         # higher order stuff
         self.taylor_dict['z^3'], self.taylor_dict['xz^2'], self.taylor_dict['yz^2'] = self.third_order_derivatives(r)
-        self.taylor_dict['z^4'], self.taylor_dict['x^2z^2'], self.taylor_dict['y^2z^2'] = self.fourth_order_derivatves(r)
+        self.taylor_dict['z^4'], self.taylor_dict['x^2z^2'], self.taylor_dict['y^2z^2'] = self.fourth_order_derivatives(r)
 
         try:
             # now restore the old voltage
@@ -212,6 +214,7 @@ class Electrode():
         # stuff that isn't really multipoles
 
         self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict['z^2']
+
         self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict['z^4']/24.
         self.multipole_dict['xz^2'] = (r0)**3 * self.taylor_dict['xz^2']
         self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
@@ -219,6 +222,7 @@ class Electrode():
         #These terms give corrections to (radial frequency)**2 along the z axis:
         self.multipole_dict['x^2z^2']  =  (r0)**4 * self.taylor_dict['x^2z^2']
         self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
+
 
 class World():
     '''
@@ -236,7 +240,7 @@ class World():
         kind = 'rf' or 'dc'. If kind == 'rf', then add this electrode to the rf electrode dict
         as well as to the general electrode dict
         '''
-        e = Electrode([xr, yr], derivatives)
+        e = Electrode([xr, yr], self.derivatives)
         e.set_voltage(voltage)
         self.electrode_dict[name] = e
         
@@ -254,14 +258,14 @@ class World():
     def compute_total_rf_voltage(self, r):
         v = 0
         for e in self.rf_electrode_dict.keys():
-            v += self.compute_voltage(e, r)
+            v += self.compute_potential(e, r)
         return v
 
     def compute_total_dc_potential(self, r):
         v = 0
         for e in self.dc_electrode_dict.keys():
             el = self.electrode_dict[e]
-            v += el.compute_voltage(r)
+            v += el.compute_potential(r)
         return v # the potential energy is automatically electron volts
 
     def compute_rf_field(self, r):
