@@ -14,8 +14,8 @@ Add all the electrodes electrodes
 '''
 gap = 5.e-6
 
-smallrfx1 = -50.e-6
-smallrfx2 = -185.e-6
+smallrfx1 = -185.e-6
+smallrfx2 = -50.e-6
 bigrfx1 = 50.e-6
 bigrfx2 = 320.e-6
 cx1 = -45.e-6

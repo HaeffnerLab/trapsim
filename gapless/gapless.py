@@ -23,8 +23,8 @@ class Electrode():
         1: trap is in the x-y plane. z axis is vertical
         '''
 
-        xmin, xmax = location[0]
-        ymin, ymax = location[1]
+        xmin, xmax = sorted(location[0])
+        ymin, ymax = sorted(location[1])
 
         (self.x1, self.y1) = (xmin, ymin)
         (self.x2, self.y2) = (xmax, ymax)
@@ -32,7 +32,7 @@ class Electrode():
 
         self.multipole_expansion_dict = {} # keys are expansion points. elements are dictionaries of multipole expansions
 
-        self.derivatives = derivatives.functions_dict
+        self.derivatives = derivatives
 
     def solid_angle(self, r):
         '''
@@ -232,7 +232,12 @@ class World():
         self.electrode_dict = {}
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
-        self.derivatives = analytic_derivatives(axes_permutation)
+
+        if axes_permutation == 0:
+            import ad_0 as ad
+        if axes_permutation == 1:
+            import ad_1 as ad
+        self.derivatives = ad.functions_dict
 
     def add_electrode(self, name, xr, yr, kind, voltage = 0.0):
         '''
@@ -255,12 +260,6 @@ class World():
     def set_omega_rf(self, omega_rf):
         self.omega_rf = omega_rf
 
-    def compute_total_rf_voltage(self, r):
-        v = 0
-        for e in self.rf_electrode_dict.keys():
-            v += self.compute_potential(e, r)
-        return v
-
     def compute_total_dc_potential(self, r):
         v = 0
         for e in self.dc_electrode_dict.keys():
@@ -273,27 +272,16 @@ class World():
         '''
         Just add the electric field due to all the rf electrodes
         '''
-        Ex = 0
-        Ey = 0
-        Ez = 0
+        E = np.zeros(3)
         for name in self.rf_electrode_dict.keys():
-            [ex, ey, ez] = self.rf_electrode_dict[name].compute_electric_field(r)
-            Ex += ex
-            Ey += ey
-            Ez += ez
-        return [Ex, Ey, Ez]
+            E += self.rf_electrode_dict[name].compute_electric_field(r)
+        return E
 
     def compute_dc_field(self, r):
-        
-        Ex = 0
-        Ey = 0
-        Ez = 0
+        E = np.zeros(3)
         for name in self.dc_electrode_dict.keys():
-            [ex, ey, ez] = self.dc_electrode_dict[name].compute_electric_field(r)
-            Ex += ex
-            Ey += ey
-            Ez += ez
-        return [Ex, Ey, Ez]
+            E += self.dc_electrode_dict[name].compute_electric_field(r)
+        return E
            
 
     def compute_squared_field_amplitude(self, r):
