@@ -7,11 +7,12 @@ import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
 import numdifftools as nd
+from analytic_derivatives import analytic_derivatives
 from multipole_expansion import *
 
 class Electrode():
 
-    def __init__(self, location, axes_permutation=0):
+    def __init__(self, location, derivatives):
         '''
         location is a 2-element list of the form
         [ (xmin, xmax), (ymin, ymax) ]
@@ -31,7 +32,7 @@ class Electrode():
 
         self.multipole_expansion_dict = {} # keys are expansion points. elements are dictionaries of multipole expansions
 
-        self.axes_permutation = axes_permutation
+        self.derivatives = derivatives.functions_dict
 
     def solid_angle(self, r):
         '''
@@ -42,19 +43,64 @@ class Electrode():
         that are electrically connected to the current electrode. This allows you to join electrodes
         on the trap, or to make more complicated electrode geometries than just rectangles.
         '''
-        if self.axes_permutation == 0:
-            xp = r[0]
-            yp = r[2]
-            zp = r[1]
-        if self.axes_permutation == 1:
-            xp, yp, zp = r
-        term = lambda x,y: np.arctan( ((x - xp)*(y - yp)) / (zp*np.sqrt( (x - xp)**2 + (y - yp)**2 + zp**2 )) )
-        solid_angle = abs(term(self.x2, self.y2) - term(self.x1, self.y2) - term(self.x2, self.y1) + term(self.x1, self.y1))
+        x, y, z = r
+        solid_angle = self.derivatives['phi0'](self.x1, self.x2, self.y1, self.y2, x, y, z)
 
         for elec in self.sub_electrodes:
             solid_angle += elec.solid_angle(r)
         
         return solid_angle
+
+    def grad(self, r):
+        '''
+        gradient of the solid angle at the observation point
+        '''
+        x, y, z = r
+        keys = ['ddx', 'ddy', 'ddz']
+        grad = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
+                         for key in keys])
+        for elec in self.sub_electrodes:
+            grad += elec.grad(r)
+        return grad
+
+    def hessian(self, r):
+        '''
+        Hessian matrix at the observation point
+        '''
+
+        x, y, z = r
+        hessian = np.zeros((3,3))
+        
+        hessian[0,0] = self.derivatives['d2dx2'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        hessian[1,1] = self.derivatives['d2dy2'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        hessian[2,2] = self.derivatives['d2dz2'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        
+        hessian[0,1] = hessian[1,0] = self.derivatives['d2dxdy'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        hessian[0,2] = hessian[2, 0] = self.derivatives['d2dxdz'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        hessian[1,2] = hessian[2,1] = self.derivatives['d2dydz'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+
+        for elec in self.sub_electrodes:
+            hessian += elec.hessian(r)
+        return  hessian
+
+    def third_order_derivatives(self, r):
+        '''
+        We're not going to include all of them here, probably.
+        '''
+        keys = ['d3dz3', 'd3dxdz2','d3ydz2']
+        third_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
+                         for key in keys])
+        for elec in self.sub_electrodes:
+            third_derivatives += elec.third_order_derivatves(r)
+        return third_derivatives
+
+    def fourth_order_derivatives(self, r):
+        keys = ['d4dz4', 'd4dx2dz2', 'd4dy2dz2']
+        fourth_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
+                         for key in keys])
+        for elec in self.sub_electrodes:
+            fourth_derivatives += elec.fourth_order_derivatves(r)
+        return fourth_derivatives
 
     def extend(self, locations):
         '''
@@ -64,9 +110,9 @@ class Electrode():
             elec = Electrode(l, axes_permutation = self.axes_permutation)
             self.sub_eub_electrodes.append(elec)
 
-    def compute_voltage(self, r):
+    def compute_potential(self, r):
         '''
-        Compute voltage at the observation point due only to this electrode. (That is,
+        Compute potential at the observation point due only to this electrode. (That is,
         all other electrodes are grounded.)
         Is just the voltage on the electrode times the solid angle (over 2pi).
         Also since the charge is e, the potential energy due to this potential is already in eV
@@ -80,9 +126,7 @@ class Electrode():
         If voltage is set in Volts, field is in Volts/meter.
         E = -grad(Potential)
         '''
-        xp, yp, zp = r
-        grad = nd.Gradient( self.compute_voltage )
-        return -1*grad(r)
+        return -(self.voltage/2*np.pi)*self.grad(r)
 
     def compute_d_effective(self, r):
         '''
@@ -91,7 +135,7 @@ class Electrode():
         field for the given applied voltage. That is,
         Deff = V/E. Will be different in each direction so we return [deff_x, deff_y, deff_z]
         '''
-        [Ex, Ey, Ez] = self.compute_electric_field(r)
+        Ex, Ey, Ez = self.compute_electric_field(r)
         return [self.voltage/Ex, self.voltage/Ey, self.voltage/Ez] # in meters
         
     def set_voltage(self, v):
@@ -116,37 +160,26 @@ class Electrode():
 
         self.taylor_dict['r^0'] = self.compute_voltage(r)
 
-        grad = nd.Gradient( self.compute_voltage)
-        self.taylor_dict['x'] = grad(r)[0]
-        self.taylor_dict['y'] = grad(r)[1]
-        self.taylor_dict['z'] = grad(r)[2]
+        grad = self.grad(r)
+        self.taylor_dict['x'] = grad[0]
+        self.taylor_dict['y'] = grad(1]
+        self.taylor_dict['z'] = grad[2]
 
         '''
         Now compute the second derivatives
         '''
+        hessian = self.hessian(r)
+        self.taylor_dict['x^2'] = 0.5*hessian[0,0]
+        self.taylor_dict['y^2'] = 0.5*hessian[1,1]
+        self.taylor_dict['z^2'] = 0.5*hessian[2,2]
+        self.taylor_dict['xy'] = hessian[0,1]
+        self.taylor_dict['xz'] = hessian[0,2]
+        self.taylor_dict['zy'] = hessian[1,2]
 
-        hessian = nd.Hessian( self.compute_voltage )
-        self.taylor_dict['x^2'] = 0.5*hessian(r)[0][0]
-        self.taylor_dict['y^2'] = 0.5*hessian(r)[1][1]
-        self.taylor_dict['z^2'] = 0.5*hessian(r)[2][2]
-        self.taylor_dict['xy'] = hessian(r)[0][1]
-        self.taylor_dict['xz'] = hessian(r)[0][2]
-        self.taylor_dict['zy'] = hessian(r)[1][2]
+        # higher order stuff
+        self.taylor_dict['z^3'], self.taylor_dict['xz^2'], self.taylor_dict['yz^2'] = self.third_order_derivatives(r)
+        self.taylor_dict['z^4'], self.taylor_dict['x^2z^2'], self.taylor_dict['y^2z^2'] = self.fourth_order_derivatves(r)
 
-        self.taylor_dict_1d = {}
-        pot_z = lambda  z : self.compute_voltage([r[0],r[1],z])
-        self.taylor_dict_1d['z^2'] = 0.5 * nd.Derivative(pot_z,n=2)(r[2])[0]
-        self.taylor_dict_1d['z^4'] = 1./24 * nd.Derivative(pot_z,n=4)(r[2])[0]
-
-        self.taylor_dict['xz^2']  =  self.compute_xz2_coeff(r)
-        self.taylor_dict['yz^2']  =  self.compute_yz2_coeff(r)
-        self.taylor_dict['x^2z^2']  =  self.compute_x2z2_coeff(r)
-        self.taylor_dict['y^2z^2']  =  self.compute_y2z2_coeff(r)
-        self.taylor_dict['x^2z^4']  =  self.compute_x2z4_coeff(r)
-
-#        self.taylor_dict['y^2z^2']  =  self.compute_y2z2_coeff(r)
-
-        #print self.taylor_dict_1d['z^2'] - self.taylor_dict['z^2']
         try:
             # now restore the old voltage
             self.set_voltage(old_voltage)
@@ -178,75 +211,14 @@ class Electrode():
         
         # stuff that isn't really multipoles
 
-        self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict_1d['z^2']
-        self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict_1d['z^4']
+        self.multipole_dict['z^2'] = (r0)**2*2*self.taylor_dict['z^2']
+        self.multipole_dict['z^4'] = (r0)**4*self.taylor_dict['z^4']/24.
         self.multipole_dict['xz^2'] = (r0)**3 * self.taylor_dict['xz^2']
         self.multipole_dict['yz^2'] = (r0)**3 * self.taylor_dict['yz^2']
 
         #These terms give corrections to (radial frequency)**2 along the z axis:
         self.multipole_dict['x^2z^2']  =  (r0)**4 * self.taylor_dict['x^2z^2']
-
         self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
-
-
-        self.multipole_dict['x^2z^4']  =  (r0)**6 * self.taylor_dict['x^2z^4']
-        #self.multipole_dict['y^2z^2']  =  (r0)**4 * self.taylor_dict['y^2z^2']
-        #self.multipole_dict['y^2z^4']  =  (r0)**4 * self.taylor_dict['y^2z^4']
-
-
-
-
-        #self.multipole_dict['z^4'] = 1*(r0**4)*self.taylor_dict_1d['z^4']
-        #Fourth order 1d taylor
-        #self.multipole_dict['z^4'] = -1*(r0**4)* self.taylor_dict_1d['z^4']
-        #r1 = 1
-        #self.multipole_dict['z^4'] = -1*(r0**4)*(35 * self.taylor_dict_1d['z^4'] - 30 * self.taylor_dict_1d['z^2'] / r1**2 \
-        #                                         + 3 / r1**4)
-        
-    def compute_xz2_coeff(self, r):
-        '''Return the coeffient of x*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
-
-        hessian      = nd.Hessian( self.compute_voltage )
-        suck_it_z2   = lambda x: 0.5*hessian((x, r[1], r[2]))[2][2]
-        
-        return nd.Derivative(suck_it_z2,n=1)(r[0])[0]
-
-    def compute_yz2_coeff(self, r):
-        '''Return the coeffient of y*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
-
-        hessian      = nd.Hessian( self.compute_voltage )
-        suck_it_z2   = lambda y: 0.5*hessian((r[0], y, r[2]))[2][2]
-        
-        return nd.Derivative(suck_it_z2,n=1)(r[1])[0]
-
-    def compute_x2z2_coeff(self, r):
-        '''Return the coeffient of x^2*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
-
-        hessian      = nd.Hessian( self.compute_voltage )
-        suck_it_z2   = lambda x: 0.5*hessian((x, r[1], r[2]))[2][2]
-        
-        return 0.5 * nd.Derivative(suck_it_z2,n=2)(r[0])[0]
-
-    def compute_y2z2_coeff(self, r):
-        '''Return the coeffient of y^2*z^2 in taylor expansion of the potential in Cartesian coordinates at point r'''
-
-        hessian      = nd.Hessian( self.compute_voltage )
-
-        suck_it_z2   = lambda y: 0.5*hessian((r[0], y, r[2]))[2][2]
-        
-        return 0.5 * nd.Derivative(suck_it_z2,n=2)(r[1])[0]
-
-
-    def compute_x2z4_coeff(self, r):
-        '''Return the coeffient of x^2*z^4 in taylor expansion of the potential in Cartesian coordinates at point r'''
-
-        hessian      = nd.Hessian( self.compute_voltage )
-        suck_it_x2   = lambda z: 0.5 * hessian((r[0], r[1], z))[0][0]
-        
-        return 1./24 * nd.Derivative(suck_it_x2, n=4)(r[2])[0]
-
-
-
 
 class World():
     '''
@@ -256,7 +228,7 @@ class World():
         self.electrode_dict = {}
         self.rf_electrode_dict = {}
         self.dc_electrode_dict = {}
-        self.axes_permutation = axes_permutation
+        self.derivatives = analytic_derivatives(axes_permutation)
 
     def add_electrode(self, name, xr, yr, kind, voltage = 0.0):
         '''
@@ -264,7 +236,7 @@ class World():
         kind = 'rf' or 'dc'. If kind == 'rf', then add this electrode to the rf electrode dict
         as well as to the general electrode dict
         '''
-        e = Electrode([xr, yr], axes_permutation=self.axes_permutation)
+        e = Electrode([xr, yr], derivatives)
         e.set_voltage(voltage)
         self.electrode_dict[name] = e
         
