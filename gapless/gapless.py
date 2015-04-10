@@ -92,7 +92,7 @@ class Electrode():
         third_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
                          for key in keys])
         for elec in self.sub_electrodes:
-            third_derivatives += elec.third_order_derivatves(r)
+            third_derivatives += elec.third_order_derivatives(r)
         return third_derivatives
 
     def fourth_order_derivatives(self, r):
@@ -101,7 +101,7 @@ class Electrode():
         fourth_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
                          for key in keys])
         for elec in self.sub_electrodes:
-            fourth_derivatives += elec.fourth_order_derivatves(r)
+            fourth_derivatives += elec.fourth_order_derivatives(r)
         return fourth_derivatives
 
     def extend(self, locations):
@@ -109,8 +109,8 @@ class Electrode():
         Extend the current electrode by a set of rectangular regions
         '''
         for l in locations:
-            elec = Electrode(l, axes_permutation = self.axes_permutation)
-            self.sub_eub_electrodes.append(elec)
+            elec = Electrode(l, self.derivatives)
+            self.sub_electrodes.append(elec)
 
     def compute_potential(self, r):
         '''
