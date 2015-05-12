@@ -6,6 +6,8 @@ for planar traps.
 import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
+import numdifftools as nd
+        
 #import numdifftools as nd
 from analytic_derivatives import analytic_derivatives
 from multipole_expansion import *
@@ -304,6 +306,7 @@ class World():
         ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
         hessdiag = nd.Hessdiag( self.compute_pseudopot )(r)
+        
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
         d2Udz2 = ev_to_joule*hessdiag[2]
@@ -320,18 +323,25 @@ class World():
         '''
         As always, this is valid only at the trapping position. Return frequency (not angular frequency)
         '''
+        
         joule_to_ev = 6.24150934e18 # conversion factor to take joules -> eV
         ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
             
-        hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
+        H = nd.Hessian(self.compute_total_dc_potential)(r)   
+        
+        freq = np.linalg.eig(H)
+        hessdiag = freq[0]
+        eigvec = freq[1]
+
+#        hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
         d2Udz2 = ev_to_joule*hessdiag[2]
         fx = np.sqrt(abs(d2Udx2)/m)/(2*np.pi)
         fy = np.sqrt(abs(d2Udy2)/m)/(2*np.pi)
         fz = np.sqrt(abs(d2Udz2)/m)/(2*np.pi)
-        return [fx, fy, fz]
+        return [fx, fy, fz], eigvec
 
     def multipole_control_matrix(self, r, controlled_multipoles, r0 = 1, shorted_electrodes = []):
         elec_list = []
@@ -350,12 +360,25 @@ class World():
             C = np.insert(C, i, zerolist, axis=1)
         return C
 
+    def calculate_multipoles(self, multipole_list):
+        multipoles = []
+        
+        for el in multipole_list:      
+            m=0
+            for elec in self.electrode_dict:
+                #m += self.electrode_dict[elec].multipole_dict[el]
+                m += self.electrode_dict[elec].multipole_dict[el]*self.electrode_dict[elec].voltage
+            multipoles.append(m)
+            
+        return multipoles
+
     def drawTrap(self):
         import numpy as np
         import matplotlib.pyplot as plt
+        import matplotlib.cm as cm
         plt.figure() #initialize figure
         
-        def indiPlotter(elec):
+        def indiPlotter(elec,mycolor):
             import numpy
             import matplotlib.pyplot as plt
         
@@ -365,16 +388,23 @@ class World():
             yM=elec[1][1]*1e6
         
             #plot vertical lines
-            plt.plot([xm,xm],[ym,yM],color='black')
-            plt.plot([xM,xM],[ym,yM],color='black')
+            plt.plot([xm,xm],[ym,yM],color=mycolor)
+            plt.plot([xM,xM],[ym,yM],color=mycolor)
         
             #plot horizontal lines
-            plt.plot([xm,xM],[ym,ym],color='black')
-            plt.plot([xm,xM],[yM,yM],color='black')
+            plt.plot([xm,xM],[ym,ym],color=mycolor)
+            plt.plot([xm,xM],[yM,yM],color=mycolor)
         
+        cmap = cm.get_cmap('Dark2')
+        elec_colors = cmap(np.linspace(0,1,len(self.electrode_dict)))
+        i=0
         for key in self.electrode_dict:
             myElec = self.electrode_dict[key]
-            indiPlotter([(myElec.x1,myElec.x2),(myElec.y1,myElec.y2)]) #plot each electrode
+            mycolor = elec_colors[i]
+            indiPlotter([(myElec.x1,myElec.x2),(myElec.y1,myElec.y2)],mycolor) #plot each electrode
+            for subelec in myElec.sub_electrodes:
+                indiPlotter([(subelec.x1,subelec.x2),(subelec.y1,subelec.y2)],mycolor)
+            i+=1
         
         orig_axes=plt.axis()
         new_axes=[0,0,0,0]
