@@ -51,7 +51,7 @@ class Electrode():
         for elec in self.sub_electrodes:
             solid_angle += elec.solid_angle(r)
         
-        return solid_angle
+        return solid_angle/(2*np.pi)
 
     def grad(self, r):
         '''
@@ -63,7 +63,7 @@ class Electrode():
                          for key in keys])
         for elec in self.sub_electrodes:
             grad += elec.grad(r)
-        return grad
+        return grad/(2*np.pi)
 
     def hessian(self, r):
         '''
@@ -83,7 +83,7 @@ class Electrode():
 
         for elec in self.sub_electrodes:
             hessian += elec.hessian(r)
-        return  hessian
+        return  hessian/(2*np.pi)
 
     def third_order_derivatives(self, r):
         '''
@@ -95,7 +95,7 @@ class Electrode():
                          for key in keys])
         for elec in self.sub_electrodes:
             third_derivatives += elec.third_order_derivatives(r)
-        return third_derivatives
+        return third_derivatives/(2*np.pi)
 
     def fourth_order_derivatives(self, r):
         keys = ['d4dz4', 'd4dx2dz2', 'd4dy2dz2']
@@ -104,7 +104,7 @@ class Electrode():
                          for key in keys])
         for elec in self.sub_electrodes:
             fourth_derivatives += elec.fourth_order_derivatives(r)
-        return fourth_derivatives
+        return fourth_derivatives/(2*np.pi)
 
     def extend(self, locations):
         '''
@@ -122,7 +122,7 @@ class Electrode():
         Also since the charge is e, the potential energy due to this potential is already in eV
         '''
 
-        return (self.voltage/(2*np.pi))*self.solid_angle(r)
+        return (self.voltage)*self.solid_angle(r)
 
     def compute_electric_field(self, r):
         '''
@@ -130,7 +130,7 @@ class Electrode():
         If voltage is set in Volts, field is in Volts/meter.
         E = -grad(Potential)
         '''
-        return -(self.voltage/2*np.pi)*self.grad(r)
+        return -(self.voltage)*self.grad(r)
 
     def compute_d_effective(self, r):
         '''
@@ -176,9 +176,9 @@ class Electrode():
         self.taylor_dict['x^2'] = 0.5*hessian[0,0]
         self.taylor_dict['y^2'] = 0.5*hessian[1,1]
         self.taylor_dict['z^2'] = 0.5*hessian[2,2]
-        self.taylor_dict['xy'] = hessian[0,1]
-        self.taylor_dict['xz'] = hessian[0,2]
-        self.taylor_dict['zy'] = hessian[1,2]
+        self.taylor_dict['xy'] = 0.5*hessian[0,1]
+        self.taylor_dict['xz'] = 0.5*hessian[0,2]
+        self.taylor_dict['zy'] = 0.5*hessian[1,2]
 
         # higher order stuff
         self.taylor_dict['z^3'], self.taylor_dict['xz^2'], self.taylor_dict['yz^2'] = self.third_order_derivatives(r)
@@ -193,18 +193,18 @@ class Electrode():
 
     def expand_in_multipoles( self, r, r0 = 1):
         '''
-        Obtain the multipole expansion for the potential due to the elctrode at the observation point.
+        Obtain the multipole expansion for the potential due to the electrode at the observation point.
         '''
 
         # first, make sure we have a taylor expansion of the potential
         self.expand_potential(r)
         self.multipole_dict = {}
         # multipoles
-        self.multipole_dict['U1'] = (r0**2)*(2*self.taylor_dict['x^2'] + self.taylor_dict['z^2'])
+        self.multipole_dict['U1'] = (r0**2)*(self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
         self.multipole_dict['U2'] = (r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
-        self.multipole_dict['U3'] = 2*(r0**2)*self.taylor_dict['xy']
-        self.multipole_dict['U4'] = 2*(r0**2)*self.taylor_dict['zy']
-        self.multipole_dict['U5'] = 2*(r0**2)*self.taylor_dict['xz']
+        self.multipole_dict['U3'] = (r0**2)*self.taylor_dict['xy']
+        self.multipole_dict['U4'] = (r0**2)*self.taylor_dict['zy']
+        self.multipole_dict['U5'] = (r0**2)*self.taylor_dict['xz']
 
         # fields
         self.multipole_dict['Ex'] = -1*r0*self.taylor_dict['x']
@@ -288,7 +288,6 @@ class World():
 
     def compute_squared_field_amplitude(self, r):
         Ex, Ey, Ez = self.compute_rf_field(r)
-        
         return Ex**2 + Ey**2 + Ez**2 # has units of V^2/m^2
 
     def compute_pseudopot(self, r):
@@ -305,7 +304,7 @@ class World():
         '''
         ev_to_joule = 1.60217657e-19
         m = 6.64215568e-26 # 40 amu in kg
-        hessdiag = nd.Hessdiag( self.compute_pseudopot )(r)
+        hessdiag = nd.Hessdiag(self.compute_pseudopot)(r)
         
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
@@ -334,7 +333,34 @@ class World():
         hessdiag = freq[0]
         eigvec = freq[1]
 
-#        hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
+        # hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
+        d2Udx2 = ev_to_joule*hessdiag[0]
+        d2Udy2 = ev_to_joule*hessdiag[1]
+        d2Udz2 = ev_to_joule*hessdiag[2]
+        fx = np.sqrt(abs(d2Udx2)/m)/(2*np.pi)
+        fy = np.sqrt(abs(d2Udy2)/m)/(2*np.pi)
+        fz = np.sqrt(abs(d2Udz2)/m)/(2*np.pi)
+        return [fx, fy, fz], eigvec
+
+    def compute_full_potential(self, r):
+        return self.compute_pseudopot(r) + self.compute_total_dc_potential(r)
+
+    def compute_full_potential_frequencies(self, r):
+        '''
+        As always, this is valid only at the trapping position. Return frequency (not angular frequency)
+        '''
+        
+        joule_to_ev = 6.24150934e18 # conversion factor to take joules -> eV
+        ev_to_joule = 1.60217657e-19
+        m = 6.64215568e-26 # 40 amu in kg
+            
+        H = nd.Hessian(self.compute_full_potential)(r)   
+        
+        freq = np.linalg.eig(H)
+        hessdiag = freq[0]
+        eigvec = freq[1]
+
+        # hessdiag = nd.Hessdiag( self.compute_total_dc_potential )(r)
         d2Udx2 = ev_to_joule*hessdiag[0]
         d2Udy2 = ev_to_joule*hessdiag[1]
         d2Udz2 = ev_to_joule*hessdiag[2]
