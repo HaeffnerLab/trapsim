@@ -173,12 +173,12 @@ class Electrode():
         Now compute the second derivatives
         '''
         hessian = self.hessian(r)
-        self.taylor_dict['x^2'] = 0.5*hessian[0,0]
-        self.taylor_dict['y^2'] = 0.5*hessian[1,1]
-        self.taylor_dict['z^2'] = 0.5*hessian[2,2]
-        self.taylor_dict['xy'] = 0.5*hessian[0,1]
-        self.taylor_dict['xz'] = 0.5*hessian[0,2]
-        self.taylor_dict['zy'] = 0.5*hessian[1,2]
+        self.taylor_dict['x^2'] = 0.25*hessian[0,0]
+        self.taylor_dict['y^2'] = 0.25*hessian[1,1]
+        self.taylor_dict['z^2'] = 0.25*hessian[2,2]
+        self.taylor_dict['xy'] = 0.25*hessian[0,1]
+        self.taylor_dict['xz'] = 0.25*hessian[0,2]
+        self.taylor_dict['zy'] = 0.25*hessian[1,2]
 
         # higher order stuff
         self.taylor_dict['z^3'], self.taylor_dict['xz^2'], self.taylor_dict['yz^2'] = self.third_order_derivatives(r)
@@ -194,14 +194,15 @@ class Electrode():
     def expand_in_multipoles( self, r, r0 = 1):
         '''
         Obtain the multipole expansion for the potential due to the electrode at the observation point.
+        Note that U1,U2 have a 2x functional form compared to U3,U4,U5 to equalize curvature
         '''
 
         # first, make sure we have a taylor expansion of the potential
         self.expand_potential(r)
         self.multipole_dict = {}
         # multipoles
-        self.multipole_dict['U1'] = (r0**2)*(self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
-        self.multipole_dict['U2'] = (r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
+        self.multipole_dict['U1'] = 0.5*(r0**2)*(self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
+        self.multipole_dict['U2'] = 0.5*(r0**2)*(2 * self.taylor_dict['z^2'] - self.taylor_dict['x^2'] - self.taylor_dict['y^2'])
         self.multipole_dict['U3'] = (r0**2)*self.taylor_dict['xy']
         self.multipole_dict['U4'] = (r0**2)*self.taylor_dict['zy']
         self.multipole_dict['U5'] = (r0**2)*self.taylor_dict['xz']
