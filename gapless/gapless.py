@@ -6,6 +6,7 @@ for planar traps.
 import numpy as np
 from itertools import *
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numdifftools as nd
         
 #import numdifftools as nd
@@ -46,12 +47,12 @@ class Electrode():
         on the trap, or to make more complicated electrode geometries than just rectangles.
         '''
         x, y, z = r
-        solid_angle = self.derivatives['phi0'](self.x1, self.x2, self.y1, self.y2, x, y, z)
+        solid_angle = self.derivatives['phi0'](self.x1, self.x2, self.y1, self.y2, x, y, z) / (2*np.pi)
 
         for elec in self.sub_electrodes:
             solid_angle += elec.solid_angle(r)
         
-        return solid_angle/(2*np.pi)
+        return solid_angle
 
     def grad(self, r):
         '''
@@ -60,10 +61,11 @@ class Electrode():
         x, y, z = r
         keys = ['ddx', 'ddy', 'ddz']
         grad = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
-                         for key in keys])
+                         for key in keys]) / (2*np.pi)
+
         for elec in self.sub_electrodes:
             grad += elec.grad(r)
-        return grad/(2*np.pi)
+        return grad
 
     def hessian(self, r):
         '''
@@ -81,9 +83,10 @@ class Electrode():
         hessian[0,2] = hessian[2, 0] = self.derivatives['d2dxdz'](self.x1, self.x2, self.y1, self.y2, x, y, z)
         hessian[1,2] = hessian[2,1] = self.derivatives['d2dydz'](self.x1, self.x2, self.y1, self.y2, x, y, z)
 
+        hessian = hessian / (2*np.pi)
         for elec in self.sub_electrodes:
             hessian += elec.hessian(r)
-        return  hessian/(2*np.pi)
+        return  hessian
 
     def third_order_derivatives(self, r):
         '''
@@ -92,19 +95,19 @@ class Electrode():
         keys = ['d3dz3', 'd3dxdz2','d3dydz2']
         x,y,z = r
         third_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
-                         for key in keys])
+                         for key in keys]) / (2*np.pi)
         for elec in self.sub_electrodes:
             third_derivatives += elec.third_order_derivatives(r)
-        return third_derivatives/(2*np.pi)
+        return third_derivatives
 
     def fourth_order_derivatives(self, r):
         keys = ['d4dz4', 'd4dx2dz2', 'd4dy2dz2']
         x, y, z = r
         fourth_derivatives = np.array([self.derivatives[key](self.x1, self.x2, self.y1, self.y2, x, y, z)
-                         for key in keys])
+                         for key in keys]) / (2*np.pi)
         for elec in self.sub_electrodes:
             fourth_derivatives += elec.fourth_order_derivatives(r)
-        return fourth_derivatives/(2*np.pi)
+        return fourth_derivatives
 
     def extend(self, locations):
         '''
@@ -400,57 +403,47 @@ class World():
         return multipoles
 
     def drawTrap(self):
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import matplotlib.cm as cm
-        plt.figure() #initialize figure
-        
-        def indiPlotter(elec,mycolor):
-            import numpy
-            import matplotlib.pyplot as plt
-        
-            xm=elec[0][0]*1e6
-            xM=elec[0][1]*1e6
-            ym=elec[1][0]*1e6
-            yM=elec[1][1]*1e6
-        
-            #plot vertical lines
-            plt.plot([xm,xm],[ym,yM],color=mycolor)
-            plt.plot([xM,xM],[ym,yM],color=mycolor)
-        
-            #plot horizontal lines
-            plt.plot([xm,xM],[ym,ym],color=mycolor)
-            plt.plot([xm,xM],[yM,yM],color=mycolor)
-        
-        cmap = cm.get_cmap('Dark2')
-        elec_colors = cmap(np.linspace(0,1,len(self.electrode_dict)))
+        fig, ax = plt.subplots() # initialize figure
+        fig.canvas.draw()
+        colors = []
+        cmap = cm.get_cmap('jet')
+        elec_colors = cmap(np.linspace(1,0,len(self.electrode_dict)))
         i=0
-        for key in self.electrode_dict:
+        drawLines = []
+        for key in tqdm(self.electrode_dict, total=len(self.electrode_dict), unit='electrodes'):
             myElec = self.electrode_dict[key]
             mycolor = elec_colors[i]
-            indiPlotter([(myElec.x1,myElec.x2),(myElec.y1,myElec.y2)],mycolor) #plot each electrode
+            # add all sides of rectangle to drawLines
+            drawLines.append([myElec.x1,myElec.x2])
+            drawLines.append([myElec.y2,myElec.y2])
+            colors.append(mycolor)
+            drawLines.append([myElec.x1,myElec.x2])
+            drawLines.append([myElec.y1,myElec.y1])
+            colors.append(mycolor)
+            drawLines.append([myElec.x1,myElec.x1])
+            drawLines.append([myElec.y1,myElec.y2])
+            colors.append(mycolor)
+            drawLines.append([myElec.x2,myElec.x2])
+            drawLines.append([myElec.y1,myElec.y2])
+            colors.append(mycolor)
+            # add all subelectrodes to drawLines
             for subelec in myElec.sub_electrodes:
-                indiPlotter([(subelec.x1,subelec.x2),(subelec.y1,subelec.y2)],mycolor)
+                drawLines.append([subelec.x1,subelec.x2])
+                drawLines.append([subelec.y2,subelec.y2])
+                colors.append(mycolor)
+                drawLines.append([subelec.x1,subelec.x2])
+                drawLines.append([subelec.y1,subelec.y1])
+                colors.append(mycolor)
+                drawLines.append([subelec.x1,subelec.x1])
+                drawLines.append([subelec.y1,subelec.y2])
+                colors.append(mycolor)
+                drawLines.append([subelec.x2,subelec.x2])
+                drawLines.append([subelec.y1,subelec.y2])
+                colors.append(mycolor)
             i+=1
-        
-        orig_axes=plt.axis()
-        new_axes=[0,0,0,0]
-        
-        #creating margins
-        h_marg=3000
-        v_marg=1
-        new_axes[0]=orig_axes[0]-h_marg
-        new_axes[1]=orig_axes[1]+h_marg
-        new_axes[2]=orig_axes[2]-v_marg
-        new_axes[3]=orig_axes[3]-v_marg
-                
-        plt.axis(new_axes)
-        plt.axes().set_aspect('equal')
+        plt.gca().set_color_cycle(colors)
+        drawLines = np.array(drawLines)*1e6
+        ax.plot(*drawLines)
         plt.xlabel('x (microns)')
         plt.ylabel('y (microns)')
         plt.show()
-        
-    
-   
-
-
